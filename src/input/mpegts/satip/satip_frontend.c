@@ -999,6 +999,8 @@ satip_frontend_input_thread ( void *aux )
 
     tc = 1;
     nfds = tvhpoll_wait(efd, ev, 1, r);
+    tvhtrace("satip", "errno = %x, where:",errno);
+    tvhtrace("satip", "EAGAIN = %x, EINTR = %x, EWOULDBLOCK = %x, ",EAGAIN,EINTR,EWOULDBLOCK);
 
     if (!tvheadend_running) goto fast_exit;
 
@@ -1258,11 +1260,50 @@ fast_exit:
     if (r < 0) {
       tvhtrace("satip", "%s - bad teardown", buf);
     } else {
+      // struct timespec ts;
+      // struct timeval  tp;
+      int timeouts = 0, grace = 20;
+      int err = 0;
+      socklen_t errlen = sizeof(err);
+
       while (1) {
-        r = http_client_run(rtsp);
-        if (r != HTTP_CON_RECEIVING && r != HTTP_CON_SENDING)
+        timeouts++;
+        if (timeouts == grace)
+        {
+          tvhtrace("satip", "timeouts exceeded - too many loops");
+          tvhtrace("satip", "break;");
           break;
+        }
+        tvhtrace("satip", "in while(1)");
+        tvhtrace("satip", "about to run http_client_run(rtsp)");
+        r = http_client_run(rtsp);
+        tvhtrace("satip", "step after http_client_run(rtsp)");
+        if (r != HTTP_CON_RECEIVING && r != HTTP_CON_SENDING)
+        {
+          tvhtrace("satip", "r = %x where:",r);
+          tvhtrace("satip", "HTTP_CON_RECEIVING = %x, and HTTP_CON_SENDING = %x",HTTP_CON_RECEIVING, HTTP_CON_SENDING);
+          tvhtrace("satip", "break;");
+          break;
+        }
+        else
+        {
+          tvhtrace("satip", "r = %x, continuing because r is one of:",r);
+          tvhtrace("satip", "HTTP_CON_RECEIVING = %x, HTTP_CON_SENDING = %x",HTTP_CON_RECEIVING, HTTP_CON_SENDING);
+        }
+
+        getsockopt(rtsp->hc_fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);
+        tvhtrace("satip", "getsockopt(rtsp->hc_fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);");
+        tvhtrace("satip", "err = %i ",err);
+        if (err) {
+          tvhtrace("satip", "Stop streaming, client hung up");
+          tvhtrace("satip", "break;");
+          break;
+        }
+
+        tvhtrace("satip", "about to run tvhpoll_wait");
         nfds = tvhpoll_wait(efd, ev, 1, 250);
+        tvhtrace("satip", "step after tvhpoll_wait");
+        tvhtrace("satip", "nfds = %x", nfds);
         if (nfds == 0)
           break;
         if (nfds < 0) {
@@ -1270,6 +1311,8 @@ fast_exit:
             continue;
           break;
         }
+        tvhtrace("satip", "ev[0].events = %x, where:",ev[0].events);
+        tvhtrace("satip", "TVHPOLL_ERR = %x, TVHPOLL_HUP = %x",TVHPOLL_ERR,TVHPOLL_HUP);
         if(ev[0].events & (TVHPOLL_ERR | TVHPOLL_HUP))
           break;
       }
@@ -1279,18 +1322,66 @@ fast_exit:
     if (r < 0) {
       tvhtrace("satip", "%s - bad teardown2", buf);
     } else {
+      // struct timespec ts;
+      // struct timeval  tp;
+      int timeouts = 0, grace = 20;
+      int err = 0;
+      socklen_t errlen = sizeof(err);
+
       while (1) {
-        r = http_client_run(rtsp);
-        if (r != HTTP_CON_RECEIVING && r != HTTP_CON_SENDING)
+        timeouts++;
+        if (timeouts == grace)
+        {
+          tvhtrace("satip", "timeouts exceeded - too many loops");
+          tvhtrace("satip", "break;");
           break;
+        }
+        tvhtrace("satip", "in while(2)");
+        tvhtrace("satip", "about to run http_client_run(rtsp)");
+        r = http_client_run(rtsp);
+        tvhtrace("satip", "step after http_client_run(rtsp)");
+        if (r != HTTP_CON_RECEIVING && r != HTTP_CON_SENDING)
+        {
+          tvhtrace("satip", "r = %x where:",r);
+          tvhtrace("satip", "HTTP_CON_RECEIVING = %x, and HTTP_CON_SENDING = %x",HTTP_CON_RECEIVING, HTTP_CON_SENDING);
+          tvhtrace("satip", "break;");
+          break;
+        }
+        else
+        {
+          tvhtrace("satip", "r = %x, continuing because r is one of:",r);
+          tvhtrace("satip", "HTTP_CON_RECEIVING = %x, HTTP_CON_SENDING = %x",HTTP_CON_RECEIVING, HTTP_CON_SENDING);
+        }
+
+        getsockopt(rtsp->hc_fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);
+        tvhtrace("satip", "getsockopt(rtsp->hc_fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);");
+        tvhtrace("satip", "err = %i ",err);
+        if (err) {
+          tvhtrace("satip", "Stop streaming, client hung up");
+          tvhtrace("satip", "break;");
+          break;
+        }
+
+        tvhtrace("satip", "about to run tvhpoll_wait");
         nfds = tvhpoll_wait(efd, ev, 1, 50); /* only small delay here */
+        tvhtrace("satip", "step after tvhpoll_wait");
+        tvhtrace("satip", "nfds = %x", nfds);
         if (nfds == 0)
           break;
         if (nfds < 0) {
+          tvhtrace("satip", "if(ndfs < 0");
           if (ERRNO_AGAIN(errno))
+          {
+            tvhtrace("satip", "if(ERRNO_AGAIN(errno)");
+            tvhtrace("satip", "errno = %x, where:",errno);
+            tvhtrace("satip", "EAGAIN = %x, EINTR = %x, EWOULDBLOCK = %x, ",EAGAIN,EINTR,EWOULDBLOCK);
+
             continue;
+          }
           break;
         }
+        tvhtrace("satip", "ev[0].events = %x, where:",ev[0].events);
+        tvhtrace("satip", "TVHPOLL_ERR = %x, TVHPOLL_HUP = %x",TVHPOLL_ERR,TVHPOLL_HUP);
         if(ev[0].events & (TVHPOLL_ERR | TVHPOLL_HUP))
           break;
       }
